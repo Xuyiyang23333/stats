@@ -22,6 +22,7 @@ public class SpeedWidget: WidgetWrapper {
     private var modeState: String = "twoRows"
     private var iconAlignmentState: String = "left"
     private var displayValueState: String = "oi"
+    private var compactWidthState: Bool = false
     
     private var inputColorState: SColor = .secondBlue
     private var outputColorState: SColor = .secondRed
@@ -116,6 +117,7 @@ public class SpeedWidget: WidgetWrapper {
             self.iconAlignmentState = Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_iconAlignment", defaultValue: self.iconAlignmentState)
             self.iconColorState = Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_iconColor", defaultValue: self.iconColorState)
             self.displayValueState = Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_displayValue", defaultValue: self.displayValueState)
+            self.compactWidthState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_compactWidth", defaultValue: self.compactWidthState)
         }
         
         if preview {
@@ -230,21 +232,26 @@ public class SpeedWidget: WidgetWrapper {
     }
     
     private func drawValue(_ value: Int64, offset: CGPoint, color: NSColor) -> CGFloat {
-        let rowWidth: CGFloat = self.unitsState ? 58 : 32
         let height: CGFloat = self.frame.height
         let style = NSMutableParagraphStyle()
         style.alignment = self.valueAlignment
         let size: CGFloat = 10
+        let font = NSFont.systemFont(ofSize: 11, weight: .regular)
+        let string = Units(bytes: value).getReadableSpeed(base: base, omitUnits: !self.unitsState)
+        let rowWidth: CGFloat = self.compactWidthState ?
+            ceil(string.widthOfString(usingFont: font)) + 4 :
+            (self.unitsState ? 58 : 32)
+        let horizontalPadding: CGFloat = self.compactWidthState ? 2 : Constants.Widget.margin.x
         
         let inputStringAttributes = [
-            NSAttributedString.Key.font: NSFont.systemFont(ofSize: 11, weight: .regular),
+            NSAttributedString.Key.font: font,
             NSAttributedString.Key.foregroundColor: color,
             NSAttributedString.Key.paragraphStyle: style
         ]
         
-        let rect = CGRect(x: offset.x, y: (height-size)/2 + offset.y + 1, width: rowWidth - (Constants.Widget.margin.x*2), height: size)
+        let rect = CGRect(x: offset.x + horizontalPadding, y: (height-size)/2 + offset.y + 1, width: rowWidth - (horizontalPadding*2), height: size)
         let value = NSAttributedString.init(
-            string: Units(bytes: value).getReadableSpeed(base: base, omitUnits: !self.unitsState),
+            string: string,
             attributes: inputStringAttributes
         )
         value.draw(with: rect)
@@ -334,18 +341,27 @@ public class SpeedWidget: WidgetWrapper {
         }
         
         if self.valueState {
-            let rowWidth: CGFloat = self.unitsState ? 48 : 30
             let rowHeight: CGFloat = self.frame.height / 2
             let style = NSMutableParagraphStyle()
             style.alignment = self.valueAlignment
+            let font = NSFont.systemFont(ofSize: 9, weight: .light)
+            let inputString = Units(bytes: self.inputValue).getReadableSpeed(base: base, omitUnits: !self.unitsState)
+            let outputString = Units(bytes: self.outputValue).getReadableSpeed(base: base, omitUnits: !self.unitsState)
+            let rowWidth: CGFloat = self.compactWidthState ?
+                ceil(max(
+                    inputString.widthOfString(usingFont: font),
+                    outputString.widthOfString(usingFont: font)
+                )) + 4 :
+                (self.unitsState ? 48 : 30)
+            let horizontalPadding: CGFloat = self.compactWidthState ? 2 : Constants.Widget.margin.x
             
             let inputStringAttributes = [
-                NSAttributedString.Key.font: NSFont.systemFont(ofSize: 9, weight: .light),
+                NSAttributedString.Key.font: font,
                 NSAttributedString.Key.foregroundColor: self.inputColor(self.valueColorState),
                 NSAttributedString.Key.paragraphStyle: style
             ]
             let outputStringAttributes = [
-                NSAttributedString.Key.font: NSFont.systemFont(ofSize: 9, weight: .light),
+                NSAttributedString.Key.font: font,
                 NSAttributedString.Key.foregroundColor: self.outputColor(self.valueColorState),
                 NSAttributedString.Key.paragraphStyle: style
             ]
@@ -353,16 +369,16 @@ public class SpeedWidget: WidgetWrapper {
             let inputY: CGFloat = self.displayValueState == "io" ? rowHeight + 1 : 1
             let outputY: CGFloat = self.displayValueState == "io" ? 1 : rowHeight + 1
             
-            var rect = CGRect(x: Constants.Widget.margin.x + x, y: inputY, width: rowWidth - (Constants.Widget.margin.x*2), height: rowHeight)
+            var rect = CGRect(x: horizontalPadding + x, y: inputY, width: rowWidth - (horizontalPadding*2), height: rowHeight)
             let input = NSAttributedString.init(
-                string: Units(bytes: self.inputValue).getReadableSpeed(base: base, omitUnits: !self.unitsState),
+                string: inputString,
                 attributes: inputStringAttributes
             )
             input.draw(with: rect)
             
-            rect = CGRect(x: Constants.Widget.margin.x + x, y: outputY, width: rowWidth - (Constants.Widget.margin.x*2), height: rowHeight)
+            rect = CGRect(x: horizontalPadding + x, y: outputY, width: rowWidth - (horizontalPadding*2), height: rowHeight)
             let output = NSAttributedString.init(
-                string: Units(bytes: self.outputValue).getReadableSpeed(base: base, omitUnits: !self.unitsState),
+                string: outputString,
                 attributes: outputStringAttributes
             )
             output.draw(with: rect)
@@ -481,7 +497,7 @@ public class SpeedWidget: WidgetWrapper {
             items: Alignments,
             selected: self.valueAlignmentState
         )
-        valueAlignment.isEnabled = self.valueState
+        valueAlignment.isEnabled = self.valueState && !self.compactWidthState
         self.valueAlignmentView = valueAlignment
         
         let iconAlignment = selectView(
@@ -547,6 +563,10 @@ public class SpeedWidget: WidgetWrapper {
                 state: self.valueState
             )),
             PreferencesRow(localizedString("Colorize value"), component: valueColor),
+            PreferencesRow(localizedString("Compact width"), component: switchView(
+                action: #selector(self.toggleCompactWidth),
+                state: self.compactWidthState
+            )),
             PreferencesRow(localizedString("Alignment"), component: valueAlignment),
             PreferencesRow(localizedString("Units"), component: switchView(
                 action: #selector(self.toggleUnits),
@@ -602,7 +622,7 @@ public class SpeedWidget: WidgetWrapper {
         self.valueState = controlState(sender)
         
         self.valueColorView?.isEnabled = self.valueState
-        self.valueAlignmentView?.isEnabled = self.valueState
+        self.valueAlignmentView?.isEnabled = self.valueState && !self.compactWidthState
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_value", value: self.valueState)
         self.display()
     }
@@ -613,6 +633,13 @@ public class SpeedWidget: WidgetWrapper {
         self.display()
     }
     
+    @objc private func toggleCompactWidth(_ sender: NSControl) {
+        self.compactWidthState = controlState(sender)
+        self.valueAlignmentView?.isEnabled = self.valueState && !self.compactWidthState
+        Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_compactWidth", value: self.compactWidthState)
+        self.display()
+    }
+
     @objc private func toggleIcon(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String else { return }
         self.icon = key

@@ -204,6 +204,7 @@
 "Stack widget" = "Stack";
 "Memory widget" = "Memory";
 "Static width" = "Static width";
+"Compact width" = "Compact width";
 "Tachometer widget" = "Tachometer";
 "State widget" = "State widget";
 "Text widget" = "Text widget";

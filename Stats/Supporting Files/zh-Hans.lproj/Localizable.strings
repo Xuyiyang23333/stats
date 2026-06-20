@@ -204,6 +204,7 @@
 "Stack widget" = "叠放";
 "Memory widget" = "容量";
 "Static width" = "固定宽度";
+"Compact width" = "紧凑宽度";
 "Tachometer widget" = "转速计";
 "State widget" = "状态";
 "Text widget" = "文本";
